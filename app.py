@@ -3,9 +3,9 @@ import pandas as pd
 import plotly.express as px
 
 
-# ==========================
+# ==============================
 # PAGE CONFIG
-# ==========================
+# ==============================
 
 st.set_page_config(
     page_title="Customer Intelligence Platform",
@@ -14,46 +14,62 @@ st.set_page_config(
 )
 
 
-# ==========================
-# STYLE
-# ==========================
+# ==============================
+# PROFESSIONAL CSS
+# ==============================
 
 st.markdown("""
 <style>
 
-.main{
-background-color:#f5f7fb;
-}
-
-h1{
-color:#0f172a;
-}
-
-h2{
-color:#1e293b;
+body {
+    background-color:#f6f8fc;
 }
 
 
-div[data-testid="metric-container"]{
+.main {
+    background-color:#f6f8fc;
+}
+
+
+h1 {
+    color:#111827;
+    font-size:42px;
+}
+
+
+h2 {
+    color:#1f2937;
+}
+
+
+.metric-card {
 
 background:white;
-padding:18px;
-border-radius:15px;
-box-shadow:0px 4px 12px rgba(0,0,0,0.08);
+padding:20px;
+border-radius:18px;
+box-shadow:0 5px 15px rgba(0,0,0,0.08);
+
+}
+
+
+.insight-card {
+
+background:white;
+padding:25px;
+border-radius:20px;
+box-shadow:0 5px 15px rgba(0,0,0,0.08);
 
 }
 
 
 </style>
-
-""",
-unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
 
 
-# ==========================
+# ==============================
 # LOAD DATA
-# ==========================
+# ==============================
 
 df = pd.read_csv(
     "final_customer_segments.csv"
@@ -61,9 +77,9 @@ df = pd.read_csv(
 
 
 
-# ==========================
+# ==============================
 # HEADER
-# ==========================
+# ==============================
 
 st.title(
 "📊 Customer Intelligence & Segmentation Platform"
@@ -72,324 +88,406 @@ st.title(
 
 st.markdown(
 """
-### AI Powered Customer Analytics System
+### AI Powered Customer Analytics Dashboard
 
-Machine Learning based customer behavior analysis
-using **K-Means Clustering**
+Machine Learning based customer behavior analysis using
+**K-Means Clustering Algorithm**
 """
 )
 
 
 st.info(
 """
-This platform discovers hidden customer groups
-and converts them into actionable business insights.
+Transforming customer data into actionable business intelligence.
 """
 )
 
 
 
-# ==========================
+# ==============================
 # SIDEBAR
-# ==========================
+# ==============================
 
 st.sidebar.title(
-"🔎 Customer Filter"
+"🔎 Customer Explorer"
 )
 
 
 segments = df["Segment"].unique()
 
 
-selected_segment = st.sidebar.multiselect(
-"Select Customer Segment",
-segments,
-default=segments
+selected_segments = st.sidebar.multiselect(
+    "Choose Customer Segments",
+    segments,
+    default=segments
 )
 
 
-filtered_df = df[
-df["Segment"].isin(selected_segment)
+data = df[
+df["Segment"].isin(selected_segments)
 ]
 
 
 st.sidebar.metric(
 "Customers Selected",
-len(filtered_df)
+len(data)
 )
 
 
 
-# ==========================
-# EXECUTIVE DASHBOARD
-# ==========================
+# ==============================
+# KPI SECTION
+# ==============================
 
 st.header(
 "📌 Executive Overview"
 )
 
 
-c1,c2,c3,c4 = st.columns(4)
+c1,c2,c3,c4,c5 = st.columns(5)
 
 
 with c1:
-
     st.metric(
-    "👥 Total Customers",
-    len(filtered_df)
+    "Total Customers",
+    len(data)
     )
 
 
 with c2:
-
     st.metric(
-    "🎯 Segments",
-    filtered_df["Segment"].nunique()
+    "Segments",
+    data["Segment"].nunique()
     )
 
 
 with c3:
-
     st.metric(
-    "💰 Avg Income",
-    f"{filtered_df['Annual Income (k$)'].mean():.1f}K"
+    "Average Age",
+    round(data["Age"].mean(),1)
     )
 
 
 with c4:
-
     st.metric(
-    "🛒 Avg Spending",
-    f"{filtered_df['Spending Score (1-100)'].mean():.1f}"
+    "Average Income",
+    str(round(data["Annual Income (k$)"].mean(),1))+"K"
+    )
+
+
+with c5:
+    st.metric(
+    "Avg Spending",
+    round(data["Spending Score (1-100)"].mean(),1)
     )
 
 
 
-# ==========================
-# SEGMENT DISTRIBUTION
-# ==========================
+# ==============================
+# TABS
+# ==============================
 
-
-st.header(
-"📈 Customer Segment Distribution"
-)
-
-
-segment_count = filtered_df["Segment"].value_counts()
-
-
-fig1 = px.pie(
-
-values=segment_count.values,
-
-names=segment_count.index,
-
-hole=0.45,
-
-title="Customer Segment Share"
-
-)
-
-
-st.plotly_chart(
-fig1,
-use_container_width=True
+tab1,tab2,tab3,tab4 = st.tabs(
+[
+"📈 Analytics",
+"🎯 Customer Segments",
+"🤖 Machine Learning",
+"💡 Business Insights"
+]
 )
 
 
 
-# ==========================
-# CUSTOMER BEHAVIOR
-# ==========================
+# ==============================
+# TAB 1 ANALYTICS
+# ==============================
 
 
-st.header(
-"🎯 Customer Behavior Analysis"
-)
+with tab1:
 
 
-fig2 = px.scatter(
-
-filtered_df,
-
-x="Annual Income (k$)",
-
-y="Spending Score (1-100)",
-
-color="Segment",
-
-size="Age",
-
-hover_data=[
-"CustomerID",
-"Gender",
-"Age"
-],
-
-title="Income vs Spending Relationship"
-
-)
+    col1,col2 = st.columns(2)
 
 
-st.plotly_chart(
-fig2,
-use_container_width=True
-)
+    with col1:
+
+        segment_count = data["Segment"].value_counts()
 
 
+        fig1 = px.pie(
 
-# ==========================
-# AGE ANALYSIS
-# ==========================
+        values=segment_count.values,
 
+        names=segment_count.index,
 
-st.header(
-"👥 Customer Age Analysis"
-)
+        hole=.45,
 
+        title="Customer Segment Distribution"
 
-fig3 = px.histogram(
-
-filtered_df,
-
-x="Age",
-
-nbins=15,
-
-title="Age Distribution"
-
-)
-
-
-st.plotly_chart(
-fig3,
-use_container_width=True
-)
-
-
-
-# ==========================
-# SEGMENT INTELLIGENCE
-# ==========================
-
-
-st.header(
-"🤖 Customer Segment Intelligence"
-)
-
-
-for segment in filtered_df["Segment"].unique():
-
-
-    data = filtered_df[
-    filtered_df["Segment"]==segment
-    ]
-
-
-    with st.expander(
-    f"⭐ {segment}"
-    ):
-
-
-        a,b,c = st.columns(3)
-
-
-        a.metric(
-        "Customers",
-        len(data)
         )
 
 
-        b.metric(
-        "Average Income",
-        round(
-        data["Annual Income (k$)"].mean(),
-        2
-        )
-        )
-
-
-        c.metric(
-        "Average Spending",
-        round(
-        data["Spending Score (1-100)"].mean(),
-        2
-        )
-        )
-
-
-        st.write(
-        """
-        Recommended Strategy:
-
-        ✅ Personalized marketing
-
-        ✅ Loyalty programs
-
-        ✅ Targeted promotions
-
-        ✅ Customer retention campaigns
-
-        """
+        st.plotly_chart(
+        fig1,
+        use_container_width=True
         )
 
 
 
-# ==========================
-# MACHINE LEARNING EXPLANATION
-# ==========================
+    with col2:
 
 
-st.header(
-"🧠 Machine Learning Methodology"
-)
+        fig2 = px.histogram(
+
+        data,
+
+        x="Age",
+
+        title="Customer Age Distribution",
+
+        nbins=15
+
+        )
 
 
-st.markdown(
+        st.plotly_chart(
+        fig2,
+        use_container_width=True
+        )
+
+
+
+
+    st.subheader(
+    "Income vs Spending Behavior"
+    )
+
+
+    fig3 = px.scatter(
+
+    data,
+
+    x="Annual Income (k$)",
+
+    y="Spending Score (1-100)",
+
+    color="Segment",
+
+    size="Age",
+
+    hover_data=["CustomerID"]
+
+    )
+
+
+    st.plotly_chart(
+    fig3,
+    use_container_width=True
+    )
+
+
+
+# ==============================
+# TAB 2 SEGMENT INTELLIGENCE
+# ==============================
+
+
+with tab2:
+
+
+    st.subheader(
+    "Customer Segment Profiles"
+    )
+
+
+    for segment in data["Segment"].unique():
+
+
+        segment_data = data[
+        data["Segment"]==segment
+        ]
+
+
+        with st.expander(
+        "⭐ "+segment
+        ):
+
+
+            a,b,c = st.columns(3)
+
+
+            a.metric(
+            "Customers",
+            len(segment_data)
+            )
+
+
+            b.metric(
+            "Income",
+            round(
+            segment_data["Annual Income (k$)"].mean(),
+            1
+            )
+            )
+
+
+            c.metric(
+            "Spending",
+            round(
+            segment_data["Spending Score (1-100)"].mean(),
+            1
+            )
+            )
+
+
+            st.write(
+            """
+            Recommended Strategy:
+
+            • Personalized marketing campaigns
+
+            • Customer loyalty programs
+
+            • Targeted product recommendations
+
+            • Retention strategy
+
+            """
+            )
+
+
+
+# ==============================
+# TAB 3 MACHINE LEARNING
+# ==============================
+
+
+with tab3:
+
+
+    st.subheader(
+    "🧠 Machine Learning Pipeline"
+    )
+
+
+    st.code(
 """
-
-### Algorithm:
-**K-Means Clustering**
-
-### Learning Type:
-Unsupervised Machine Learning
-
-
-### Workflow:
-
-
 Customer Dataset
-↓
+
+        ↓
+
 Data Cleaning
-↓
+
+        ↓
+
 Feature Selection
-↓
+
+        ↓
+
 Feature Scaling
-↓
-K-Means Algorithm
-↓
+
+        ↓
+
+K-Means Clustering
+
+        ↓
+
 Customer Segmentation
-↓
+
+        ↓
+
 Business Insights
+"""
+)
 
 
+    col1,col2,col3 = st.columns(3)
+
+
+    col1.metric(
+    "Algorithm",
+    "K-Means"
+    )
+
+
+    col2.metric(
+    "Learning Type",
+    "Unsupervised"
+    )
+
+
+    col3.metric(
+    "Clusters",
+    "5"
+    )
+
+
+
+    st.success(
+    """
+    Model identifies hidden customer groups
+    without predefined labels.
+    """
+    )
+
+
+
+# ==============================
+# TAB 4 BUSINESS INSIGHTS
+# ==============================
+
+
+with tab4:
+
+
+    st.subheader(
+    "💡 Business Recommendations"
+    )
+
+
+    st.markdown(
+"""
+### Premium Customers
+
+✔ Maintain loyalty  
+✔ Provide exclusive offers  
+✔ Increase customer lifetime value  
+
+
+### Potential Customers
+
+✔ Personalized promotions  
+✔ Encourage higher spending  
+
+
+### Low Engagement Customers
+
+✔ Re-engagement campaigns  
+✔ Special discounts  
+✔ Feedback collection
+
+
+### Regular Customers
+
+✔ Improve retention  
+✔ Cross-selling opportunities
 
 """
 )
 
 
 
-# ==========================
-# DOWNLOAD REPORT
-# ==========================
+# ==============================
+# DOWNLOAD
+# ==============================
 
 
 st.header(
-"📥 Export Report"
+"📥 Export Customer Data"
 )
 
 
-csv = filtered_df.to_csv(
+csv = data.to_csv(
 index=False
 )
 
@@ -400,7 +498,7 @@ st.download_button(
 
 csv,
 
-"customer_segments_report.csv",
+"customer_segmentation_report.csv",
 
 "text/csv"
 
@@ -408,14 +506,14 @@ csv,
 
 
 
-# ==========================
+# ==============================
 # FOOTER
-# ==========================
+# ==============================
 
 
 st.markdown(
 """
 ---
-🚀 Built with Python | Scikit-Learn | K-Means | Streamlit
+🚀 Built using Python | Pandas | Plotly | Machine Learning | Streamlit
 """
 )
