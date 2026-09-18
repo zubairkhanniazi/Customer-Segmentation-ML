@@ -517,3 +517,175 @@ st.markdown(
 🚀 Built using Python | Pandas | Plotly | Machine Learning | Streamlit
 """
 )
+# ==============================
+# PAYMENT METHOD ANALYSIS
+# ==============================
+
+st.markdown("---")
+
+st.header("💳 Customer Payment Behavior Analysis")
+
+
+# Create payment method data if column does not exist
+
+if "Payment_Method" not in data.columns:
+
+    import numpy as np
+
+    np.random.seed(42)
+
+    payment_methods = [
+        "Credit Card",
+        "Debit Card",
+        "Mobile Wallet",
+        "Cash",
+        "Bank Transfer"
+    ]
+
+    data = data.copy()
+
+    data["Payment_Method"] = np.random.choice(
+        payment_methods,
+        size=len(data),
+        p=[0.35,0.25,0.20,0.10,0.10]
+    )
+
+
+
+# KPI Cards
+
+payment_col1, payment_col2, payment_col3 = st.columns(3)
+
+
+with payment_col1:
+
+    st.metric(
+        "💳 Payment Channels",
+        data["Payment_Method"].nunique()
+    )
+
+
+with payment_col2:
+
+    most_used = (
+        data["Payment_Method"]
+        .value_counts()
+        .idxmax()
+    )
+
+    st.metric(
+        "🏆 Most Used Method",
+        most_used
+    )
+
+
+with payment_col3:
+
+    digital = data[
+        data["Payment_Method"].isin(
+            [
+                "Credit Card",
+                "Debit Card",
+                "Mobile Wallet",
+                "Bank Transfer"
+            ]
+        )
+    ]
+
+    digital_percentage = round(
+        len(digital) / len(data) * 100,
+        1
+    )
+
+
+    st.metric(
+        "📱 Digital Payments",
+        f"{digital_percentage}%"
+    )
+
+
+
+# Payment Distribution Chart
+
+payment_count = (
+    data["Payment_Method"]
+    .value_counts()
+)
+
+
+fig_payment = px.pie(
+
+    values=payment_count.values,
+
+    names=payment_count.index,
+
+    hole=0.45,
+
+    title="Customer Preferred Payment Methods"
+
+)
+
+
+st.plotly_chart(
+    fig_payment,
+    use_container_width=True
+)
+
+
+
+# Payment by Segment
+
+st.subheader(
+    "🎯 Payment Preference Across Customer Segments"
+)
+
+
+payment_segment = pd.crosstab(
+
+    data["Segment"],
+
+    data["Payment_Method"]
+
+)
+
+
+
+fig_segment_payment = px.bar(
+
+    payment_segment,
+
+    barmode="group",
+
+    title="Payment Methods Used by Each Customer Segment"
+
+)
+
+
+st.plotly_chart(
+
+    fig_segment_payment,
+
+    use_container_width=True
+
+)
+
+
+
+# Business Insights
+
+st.subheader(
+    "💡 Payment Strategy Insights"
+)
+
+
+st.info(
+"""
+• Premium customers can be targeted with credit-card rewards.
+
+• Mobile wallet users are suitable for digital campaigns.
+
+• Cash users can be encouraged towards online payment adoption.
+
+• Payment preferences help personalize marketing strategies.
+"""
+)
