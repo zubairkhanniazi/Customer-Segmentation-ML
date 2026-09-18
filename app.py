@@ -50,7 +50,8 @@ st.sidebar.title("🔎 Customer Filter")
 selected_segment = st.sidebar.multiselect(
     "Select Customer Segment",
     options=df["Segment"].unique(),
-    default=df["Segment"].unique()
+    default=df["Segment"].unique(),
+    max_selections=5
 )
 
 filtered_df = df[
