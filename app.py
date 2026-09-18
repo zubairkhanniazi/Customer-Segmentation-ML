@@ -43,8 +43,7 @@ st.markdown(
 )
 
 # Load data
-df = pd.read_csv("../data/final_customer_segments.csv")
-
+df = pd.read_csv("data/final_customer_segments.csv")
 
 # Sidebar Filter
 st.sidebar.title("🔎 Customer Filter")
