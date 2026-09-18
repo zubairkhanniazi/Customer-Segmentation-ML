@@ -31,7 +31,7 @@ st.set_page_config(
 )
 
 # Title
-st.title("👥 Customer Segmentation AI Dashboard")
+st.title("📊 Customer Intelligence & Segmentation Platform")
 st.info(
 """
 This AI-powered dashboard uses K-Means Clustering
@@ -39,7 +39,7 @@ to identify customer groups based on income and spending behavior.
 """
 )
 st.markdown(
-    "### Analyze customer behavior using Machine Learning (K-Means Clustering)"
+"### Machine Learning powered customer behavior analysis using K-Means clustering"
 )
 
 # Load data
