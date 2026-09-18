@@ -136,3 +136,137 @@ st.sidebar.metric(
     "Customers Selected",
     len(filtered_df)
 )
+# ==========================
+# EXECUTIVE OVERVIEW
+# ==========================
+
+st.header("📌 Executive Overview")
+
+
+col1, col2, col3, col4 = st.columns(4)
+
+
+with col1:
+    st.metric(
+        "👥 Total Customers",
+        len(filtered_df)
+    )
+
+
+with col2:
+    st.metric(
+        "🎯 Customer Segments",
+        filtered_df["Segment"].nunique()
+    )
+
+
+with col3:
+    st.metric(
+        "💰 Average Income",
+        f"{filtered_df['Annual Income (k$)'].mean():.2f}K"
+    )
+
+
+with col4:
+    st.metric(
+        "🛒 Average Spending",
+        f"{filtered_df['Spending Score (1-100)'].mean():.2f}"
+    )
+
+
+
+# ==========================
+# SEGMENT DISTRIBUTION
+# ==========================
+
+st.header("📊 Customer Segment Distribution")
+
+
+segment_count = filtered_df["Segment"].value_counts()
+
+
+fig1 = px.pie(
+    values=segment_count.values,
+    names=segment_count.index,
+    hole=0.45,
+    title="Customer Distribution by Segment"
+)
+
+
+st.plotly_chart(
+    fig1,
+    use_container_width=True
+)
+
+
+
+# ==========================
+# CUSTOMER BEHAVIOR MAP
+# ==========================
+
+st.header("🎯 Customer Behavior Intelligence")
+
+
+fig2 = px.scatter(
+    filtered_df,
+    x="Annual Income (k$)",
+    y="Spending Score (1-100)",
+    color="Segment",
+    size="Age",
+    hover_data=[
+        "CustomerID",
+        "Gender",
+        "Age"
+    ],
+    title="Income vs Spending Relationship"
+)
+
+
+st.plotly_chart(
+    fig2,
+    use_container_width=True
+)
+
+
+
+# ==========================
+# AGE ANALYSIS
+# ==========================
+
+st.header("👥 Customer Age Analysis")
+
+
+fig3 = px.histogram(
+    filtered_df,
+    x="Age",
+    nbins=15,
+    title="Age Distribution"
+)
+
+
+st.plotly_chart(
+    fig3,
+    use_container_width=True
+)
+
+
+
+# ==========================
+# INCOME ANALYSIS
+# ==========================
+
+st.header("💰 Income Distribution")
+
+
+fig4 = px.histogram(
+    filtered_df,
+    x="Annual Income (k$)",
+    nbins=15,
+    title="Annual Income Distribution"
+)
+
+
+st.plotly_chart(
+    fig4,
+    use_container_width=True
+)
