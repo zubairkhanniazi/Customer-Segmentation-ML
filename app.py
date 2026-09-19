@@ -14,11 +14,15 @@ import streamlit as st
 DATA_PATH = "final_customer_segments.csv"
 REQUIRED_COLUMNS = ["CustomerID", "Segment", "Age", "Annual Income (k$)", "Spending Score (1-100)"]
 
-ACCENT = "#6366f1"
-ACCENT_DARK = "#4338ca"
-
 PAYMENT_METHODS = ["Credit Card", "Debit Card", "Mobile Wallet", "Cash", "Bank Transfer"]
 DIGITAL_METHODS = ["Credit Card", "Debit Card", "Mobile Wallet", "Bank Transfer"]
+
+THEMES = {
+    "Light": {"accent": "#6366f1", "accent_dark": "#4338ca", "bg": "#f6f8fc",
+              "card_bg": "white", "text": "#111827", "sidebar_bg": "#f8fafc"},
+    "Dark": {"accent": "#818cf8", "accent_dark": "#6366f1", "bg": "#0f172a",
+             "card_bg": "#1e293b", "text": "#f1f5f9", "sidebar_bg": "#0b1220"},
+}
 
 
 # ==========================================
@@ -37,7 +41,7 @@ st.set_page_config(
 # STYLING
 # ==========================================
 
-def inject_custom_css() -> None:
+def inject_custom_css(theme: dict) -> None:
     st.markdown(
         f"""
         <style>
@@ -46,9 +50,13 @@ def inject_custom_css() -> None:
         html, body, [class*="css"] {{
             font-family: 'Inter', sans-serif;
         }}
+        .stApp {{
+            background-color: {theme['bg']};
+            color: {theme['text']};
+        }}
 
         .hero {{
-            background: linear-gradient(135deg, {ACCENT} 0%, {ACCENT_DARK} 100%);
+            background: linear-gradient(135deg, {theme['accent']} 0%, {theme['accent_dark']} 100%);
             padding: 2.2rem 2.5rem;
             border-radius: 20px;
             color: white;
@@ -67,27 +75,26 @@ def inject_custom_css() -> None:
         }}
 
         div[data-testid="stMetric"] {{
-            background: white;
+            background: {theme['card_bg']};
             border-radius: 16px;
             padding: 1rem 1.2rem;
-            box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
-            border: 1px solid #eef0f5;
+            box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+            border: 1px solid rgba(148, 163, 184, 0.2);
             transition: transform 0.15s ease, box-shadow 0.15s ease;
         }}
         div[data-testid="stMetric"]:hover {{
             transform: translateY(-2px);
-            box-shadow: 0 8px 22px rgba(15, 23, 42, 0.10);
+            box-shadow: 0 8px 22px rgba(15, 23, 42, 0.12);
         }}
 
         section[data-testid="stSidebar"] {{
-            background: #f8fafc;
-            border-right: 1px solid #e2e8f0;
+            background: {theme['sidebar_bg']};
         }}
 
         .section-divider {{
             margin: 1.8rem 0;
             border: none;
-            border-top: 1px solid #e2e8f0;
+            border-top: 1px solid rgba(148, 163, 184, 0.3);
         }}
         .footer-note {{
             text-align: center;
@@ -97,13 +104,20 @@ def inject_custom_css() -> None:
         }}
         .badge {{
             display: inline-block;
-            background: #eef2ff;
-            color: {ACCENT_DARK};
+            background: rgba(99, 102, 241, 0.12);
+            color: {theme['accent_dark']};
             font-size: 12px;
             font-weight: 600;
             padding: 3px 10px;
             border-radius: 999px;
             margin-right: 6px;
+        }}
+        .profile-card {{
+            background: {theme['card_bg']};
+            border-radius: 18px;
+            padding: 1.5rem 1.8rem;
+            box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+            border: 1px solid rgba(148, 163, 184, 0.2);
         }}
         </style>
         """,
@@ -125,11 +139,31 @@ def load_dataset() -> pd.DataFrame:
             PAYMENT_METHODS, size=len(df), p=[0.35, 0.25, 0.20, 0.10, 0.10]
         )
 
+    df["Estimated_CLV"] = estimate_clv(df)
     return df
+
+
+def estimate_clv(df: pd.DataFrame) -> pd.Series:
+    """
+    A simple, transparent Customer Lifetime Value estimate:
+    CLV ≈ Annual Income × (Spending Score / 100) × assumed 3-year horizon.
+    This is a illustrative heuristic, not a true predictive CLV model —
+    labeled as an estimate everywhere it's shown.
+    """
+    assumed_years = 3
+    return (df["Annual Income (k$)"] * 1000 * (df["Spending Score (1-100)"] / 100) * assumed_years).round(0)
 
 
 def validate_dataset(df: pd.DataFrame) -> list[str]:
     return [col for col in REQUIRED_COLUMNS if col not in df.columns]
+
+
+def detect_outliers(df: pd.DataFrame, column: str) -> pd.Series:
+    """Flag values outside 1.5x the IQR as outliers for the given column."""
+    q1, q3 = df[column].quantile([0.25, 0.75])
+    iqr = q3 - q1
+    lower, upper = q1 - 1.5 * iqr, q3 + 1.5 * iqr
+    return ~df[column].between(lower, upper)
 
 
 # ==========================================
@@ -142,7 +176,7 @@ def render_hero() -> None:
         <div class="hero">
             <div class="hero-title">📊 Customer Intelligence & Segmentation Platform</div>
             <div class="hero-subtitle">AI-powered customer analytics using K-Means clustering —
-            explore segments, payment behavior, and business strategy in one place.</div>
+            explore segments, lifetime value, payment behavior, and outliers in one place.</div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -150,15 +184,19 @@ def render_hero() -> None:
 
 
 # ==========================================
-# SIDEBAR — FILTERS
+# SIDEBAR — FILTERS & SETTINGS
 # ==========================================
 
-def render_sidebar(df: pd.DataFrame) -> pd.DataFrame:
+def render_sidebar(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     with st.sidebar:
         st.title("🔎 Customer Explorer")
-        st.caption("Filter the customer base explored across every tab.")
+
+        theme_choice = st.radio("Theme", list(THEMES.keys()), horizontal=True)
+        theme = THEMES[theme_choice]
 
         st.markdown("---")
+        st.caption("Filter the customer base explored across every tab.")
+
         segments = sorted(df["Segment"].unique())
         selected_segments = st.multiselect("Customer Segments", segments, default=segments)
 
@@ -171,6 +209,9 @@ def render_sidebar(df: pd.DataFrame) -> pd.DataFrame:
         spend_min, spend_max = int(df["Spending Score (1-100)"].min()), int(df["Spending Score (1-100)"].max())
         spend_range = st.slider("Spending Score", spend_min, spend_max, (spend_min, spend_max))
 
+        if st.button("↺ Reset Filters"):
+            st.rerun()
+
         filtered = df[
             df["Segment"].isin(selected_segments)
             & df["Age"].between(*age_range)
@@ -179,22 +220,12 @@ def render_sidebar(df: pd.DataFrame) -> pd.DataFrame:
         ]
 
         st.markdown("---")
-        st.subheader("Customer Lookup")
-        customer_id = st.text_input("Search by Customer ID")
-        if customer_id:
-            match = df[df["CustomerID"].astype(str) == customer_id.strip()]
-            if match.empty:
-                st.warning("No customer found with that ID.")
-            else:
-                st.dataframe(match, use_container_width=True)
-
-        st.markdown("---")
         st.metric("Customers Selected", f"{len(filtered):,} / {len(df):,}")
 
         if filtered.empty:
             st.warning("No customers match the current filters.")
 
-    return filtered
+    return filtered, theme
 
 
 # ==========================================
@@ -208,19 +239,22 @@ def render_kpi_dashboard(data: pd.DataFrame) -> None:
         st.info("Adjust the filters in the sidebar to see results.")
         return
 
-    c1, c2, c3, c4, c5 = st.columns(5)
+    c1, c2, c3, c4, c5, c6 = st.columns(6)
     c1.metric("Total Customers", f"{len(data):,}")
     c2.metric("Segments", data["Segment"].nunique())
     c3.metric("Average Age", round(data["Age"].mean(), 1))
     c4.metric("Average Income", f"{data['Annual Income (k$)'].mean():.1f}K")
     c5.metric("Avg Spending", round(data["Spending Score (1-100)"].mean(), 1))
+    c6.metric("Est. Avg CLV*", f"${data['Estimated_CLV'].mean():,.0f}")
+    st.caption("*Estimated CLV is a simplified heuristic (Income × Spending Score × 3-year horizon), "
+               "not a predictive model.")
 
 
 # ==========================================
 # TAB 1 — ANALYTICS
 # ==========================================
 
-def render_analytics_tab(data: pd.DataFrame) -> None:
+def render_analytics_tab(data: pd.DataFrame, theme: dict) -> None:
     if data.empty:
         st.info("Adjust the filters in the sidebar to see charts.")
         return
@@ -232,21 +266,20 @@ def render_analytics_tab(data: pd.DataFrame) -> None:
         fig1 = px.pie(
             values=segment_count.values, names=segment_count.index,
             hole=0.45, title="Customer Segment Distribution",
-            color_discrete_sequence=px.colors.sequential.Purples_r,
         )
         st.plotly_chart(fig1, use_container_width=True)
 
     with col2:
         fig2 = px.histogram(
             data, x="Age", title="Customer Age Distribution", nbins=15,
-            color_discrete_sequence=[ACCENT],
+            color_discrete_sequence=[theme["accent"]],
         )
         st.plotly_chart(fig2, use_container_width=True)
 
     st.subheader("Income vs Spending Behavior")
     fig3 = px.scatter(
         data, x="Annual Income (k$)", y="Spending Score (1-100)",
-        color="Segment", size="Age", hover_data=["CustomerID"],
+        color="Segment", size="Age", hover_data=["CustomerID", "Estimated_CLV"],
     )
     st.plotly_chart(fig3, use_container_width=True)
 
@@ -284,10 +317,11 @@ def render_segment_tab(data: pd.DataFrame) -> None:
         segment_data = data[data["Segment"] == segment]
 
         with st.expander(f"⭐ {segment}"):
-            a, b, c = st.columns(3)
+            a, b, c, d = st.columns(4)
             a.metric("Customers", len(segment_data))
             b.metric("Income", round(segment_data["Annual Income (k$)"].mean(), 1))
             c.metric("Spending", round(segment_data["Spending Score (1-100)"].mean(), 1))
+            d.metric("Est. Avg CLV*", f"${segment_data['Estimated_CLV'].mean():,.0f}")
             st.markdown(SEGMENT_STRATEGIES)
 
     render_segment_radar(data)
@@ -298,14 +332,13 @@ def render_segment_radar(data: pd.DataFrame) -> None:
 
     metrics = ["Age", "Annual Income (k$)", "Spending Score (1-100)"]
     profile = data.groupby("Segment")[metrics].mean()
-
-    # Normalize each metric to 0-100 so segments are comparable on one radar chart.
     normalized = (profile - profile.min()) / (profile.max() - profile.min() + 1e-9) * 100
 
     fig = go.Figure()
     for segment in normalized.index:
+        values = normalized.loc[segment].tolist()
         fig.add_trace(go.Scatterpolar(
-            r=normalized.loc[segment].tolist() + [normalized.loc[segment].tolist()[0]],
+            r=values + [values[0]],
             theta=metrics + [metrics[0]],
             fill="toself",
             name=str(segment),
@@ -317,11 +350,8 @@ def render_segment_radar(data: pd.DataFrame) -> None:
         title="Relative Segment Profiles (normalized)",
     )
     st.plotly_chart(fig, use_container_width=True)
-    st.caption(
-        "Each axis is scaled 0–100 relative to the other segments, so shapes "
-        "show relative strengths (e.g. highest spenders, oldest average age) "
-        "rather than absolute values."
-    )
+    st.caption("Each axis is scaled 0–100 relative to the other segments, showing relative "
+               "strengths rather than absolute values.")
 
 
 # ==========================================
@@ -429,23 +459,158 @@ def render_payment_tab(data: pd.DataFrame) -> None:
 
 
 # ==========================================
+# TAB 6 — CUSTOMER 360
+# ==========================================
+
+def render_customer_360_tab(df: pd.DataFrame) -> None:
+    st.subheader("🔍 Customer 360 Profile")
+
+    customer_id = st.text_input("Enter Customer ID to view full profile", key="c360_search")
+
+    if not customer_id:
+        st.info("Enter a Customer ID above to see their full profile.")
+        return
+
+    match = df[df["CustomerID"].astype(str) == customer_id.strip()]
+    if match.empty:
+        st.warning("No customer found with that ID.")
+        return
+
+    customer = match.iloc[0]
+    segment_avg = df[df["Segment"] == customer["Segment"]].mean(numeric_only=True)
+
+    st.markdown('<div class="profile-card">', unsafe_allow_html=True)
+    st.markdown(f"### Customer #{customer['CustomerID']} · Segment: **{customer['Segment']}**")
+
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Age", int(customer["Age"]))
+    m2.metric("Income", f"{customer['Annual Income (k$)']:.0f}K",
+               delta=f"{customer['Annual Income (k$)'] - segment_avg['Annual Income (k$)']:.1f} vs segment avg")
+    m3.metric("Spending Score", int(customer["Spending Score (1-100)"]),
+               delta=f"{customer['Spending Score (1-100)'] - segment_avg['Spending Score (1-100)']:.1f} vs segment avg")
+    m4.metric("Est. CLV*", f"${customer['Estimated_CLV']:,.0f}")
+    st.markdown(f"**Preferred Payment Method:** {customer.get('Payment_Method', 'N/A')}")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    st.caption("*Estimated CLV is a simplified heuristic, not a predictive model.")
+
+
+# ==========================================
+# TAB 7 — COMPARE CUSTOMERS
+# ==========================================
+
+def render_compare_tab(df: pd.DataFrame) -> None:
+    st.subheader("⚖️ Compare Two Customers")
+
+    col_a, col_b = st.columns(2)
+    with col_a:
+        id_a = st.text_input("Customer ID A", key="compare_a")
+    with col_b:
+        id_b = st.text_input("Customer ID B", key="compare_b")
+
+    if not (id_a and id_b):
+        st.info("Enter two Customer IDs above to compare them.")
+        return
+
+    row_a = df[df["CustomerID"].astype(str) == id_a.strip()]
+    row_b = df[df["CustomerID"].astype(str) == id_b.strip()]
+
+    if row_a.empty or row_b.empty:
+        st.warning("One or both Customer IDs were not found.")
+        return
+
+    a, b = row_a.iloc[0], row_b.iloc[0]
+
+    comparison = pd.DataFrame({
+        "Metric": ["Segment", "Age", "Annual Income (k$)", "Spending Score (1-100)",
+                   "Estimated CLV*", "Payment Method"],
+        f"Customer {a['CustomerID']}": [a["Segment"], a["Age"], a["Annual Income (k$)"],
+                                          a["Spending Score (1-100)"], f"${a['Estimated_CLV']:,.0f}",
+                                          a.get("Payment_Method", "N/A")],
+        f"Customer {b['CustomerID']}": [b["Segment"], b["Age"], b["Annual Income (k$)"],
+                                          b["Spending Score (1-100)"], f"${b['Estimated_CLV']:,.0f}",
+                                          b.get("Payment_Method", "N/A")],
+    })
+
+    st.dataframe(comparison, use_container_width=True, hide_index=True)
+    st.caption("*Estimated CLV is a simplified heuristic, not a predictive model.")
+
+
+# ==========================================
+# TAB 8 — OUTLIER DETECTION
+# ==========================================
+
+def render_outlier_tab(data: pd.DataFrame) -> None:
+    if data.empty:
+        st.info("Adjust the filters in the sidebar to check for outliers.")
+        return
+
+    st.subheader("🚩 Unusual Customer Behavior")
+    st.caption("Customers flagged using the IQR method — values far outside the typical "
+               "range for Income or Spending Score.")
+
+    income_outliers = detect_outliers(data, "Annual Income (k$)")
+    spending_outliers = detect_outliers(data, "Spending Score (1-100)")
+    flagged = data[income_outliers | spending_outliers]
+
+    st.metric("Flagged Customers", f"{len(flagged)} / {len(data)}")
+
+    if flagged.empty:
+        st.success("No unusual customers detected in the current filter.")
+    else:
+        st.dataframe(
+            flagged[["CustomerID", "Segment", "Age", "Annual Income (k$)",
+                     "Spending Score (1-100)", "Estimated_CLV"]],
+            use_container_width=True, hide_index=True,
+        )
+
+        fig = px.scatter(
+            data, x="Annual Income (k$)", y="Spending Score (1-100)",
+            color=(income_outliers | spending_outliers).map({True: "Outlier", False: "Typical"}),
+            color_discrete_map={"Outlier": "#ef4444", "Typical": "#94a3b8"},
+            title="Outliers Highlighted",
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+
+# ==========================================
 # EXPORT
 # ==========================================
 
 def render_export(data: pd.DataFrame) -> None:
-    st.header("📥 Export Customer Data")
+    st.header("📥 Export Data")
 
     if data.empty:
         st.info("No data to export with the current filters.")
         return
 
-    csv = data.to_csv(index=False).encode("utf-8")
-    st.download_button(
-        "⬇️ Download Customer Report",
-        csv,
-        "customer_segmentation_report.csv",
-        "text/csv",
-    )
+    col1, col2 = st.columns(2)
+
+    with col1:
+        csv = data.to_csv(index=False).encode("utf-8")
+        st.download_button(
+            "⬇️ Download Full Customer Report",
+            csv, "customer_segmentation_report.csv", "text/csv",
+        )
+
+    with col2:
+        summary = (
+            data.groupby("Segment")
+            .agg(
+                Customers=("CustomerID", "count"),
+                Avg_Age=("Age", "mean"),
+                Avg_Income=("Annual Income (k$)", "mean"),
+                Avg_Spending=("Spending Score (1-100)", "mean"),
+                Avg_Estimated_CLV=("Estimated_CLV", "mean"),
+            )
+            .round(1)
+            .reset_index()
+        )
+        summary_csv = summary.to_csv(index=False).encode("utf-8")
+        st.download_button(
+            "⬇️ Download Segment Summary",
+            summary_csv, "segment_summary_report.csv", "text/csv",
+        )
 
 
 def render_footer() -> None:
@@ -462,8 +627,6 @@ def render_footer() -> None:
 # ==========================================
 
 def main() -> None:
-    inject_custom_css()
-
     try:
         df = load_dataset()
     except FileNotFoundError:
@@ -475,26 +638,34 @@ def main() -> None:
         st.error(f"Dataset is missing required column(s): {', '.join(missing_cols)}")
         st.stop()
 
-    data = render_sidebar(df)
+    data, theme = render_sidebar(df)
+    inject_custom_css(theme)
 
     render_hero()
     render_kpi_dashboard(data)
 
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(
-        ["📈 Analytics", "🎯 Customer Segments", "🤖 Machine Learning",
-         "💡 Business Insights", "💳 Payment Behavior"]
-    )
+    tabs = st.tabs([
+        "📈 Analytics", "🎯 Customer Segments", "🤖 Machine Learning",
+        "💡 Business Insights", "💳 Payment Behavior",
+        "🔍 Customer 360", "⚖️ Compare Customers", "🚩 Outlier Detection",
+    ])
 
-    with tab1:
-        render_analytics_tab(data)
-    with tab2:
+    with tabs[0]:
+        render_analytics_tab(data, theme)
+    with tabs[1]:
         render_segment_tab(data)
-    with tab3:
+    with tabs[2]:
         render_ml_tab()
-    with tab4:
+    with tabs[3]:
         render_insights_tab()
-    with tab5:
+    with tabs[4]:
         render_payment_tab(data)
+    with tabs[5]:
+        render_customer_360_tab(df)
+    with tabs[6]:
+        render_compare_tab(df)
+    with tabs[7]:
+        render_outlier_tab(data)
 
     render_export(data)
     render_footer()
